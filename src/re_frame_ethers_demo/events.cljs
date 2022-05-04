@@ -1,10 +1,12 @@
 (ns re-frame-ethers-demo.events
   (:require
    [re-frame.core :refer [reg-event-db reg-event-fx inject-cofx path after]]
+   [cljs.spec.alpha :as s]
+   [day8.re-frame.http-fx]
+   [ajax.core :as ajax]
    [re-frame-ethers-demo.db :as db]
    [re-frame-ethers-demo.ethereum :as ethereum]
    [re-frame-ethers-demo.ethers-fx]
-   [cljs.spec.alpha :as s]
    [re-frame-ethers-demo.utils :as utils]
 ))
 
@@ -24,8 +26,10 @@
 
 (def ethers-interceptors [check-spec-interceptor])
 
-(def chain-info-interceptor [(path :chain)
+(def chain-interceptor [(path :chain)
                              (after db/chain-info->local-store)])
+
+(def contract-interceptor [(path :contract)])
 
 (reg-event-fx
  ::initialize-db
@@ -42,35 +46,30 @@
                                            :chain chain-info)}]
      (if eth-injected
        (assoc effects :efx/load-accounts {:provider web3-provider
-                                                       :on-success [::update-chain-accounts "load-accounts"]
-                                                       :on-error [::log-error "Load accounts failed: "]}
+                                          :on-success [::update-chain-accounts "load-accounts"]
+                                          :on-error [::log-error "Load accounts failed: "]}
                       :efx/p-call {:provider web3-provider
                                    :fns [{:fn :get-network
-                                          ;;:args []
                                           :on-success [::update-chain-network "load-network"]
                                           :on-error [::log-error "Load network failed: "]}]}
                       :efx/watch-blocks {:provider web3-provider
                                          :event "block"
-                                         :listener (fn [block-num] (js/console.log "got new block" block-num) (utils/>evt [::update-chain-height (js->clj block-num)]))})
+                                         :listener (fn [block-num] (utils/>evt [::update-chain-height (js->clj block-num)]))})
        (assoc effects ::utils/alert "Plz install metamask extension")))))
 
-(comment
-  :efx/watch-blocks {:provider web3-provider
-                     :event "block"
-                     :listener #(utils/>evt [::update-chain-height (utils/js->cljkk %)])})
 (reg-event-fx
  ::connect-wallet
  [(inject-cofx ::db/eth-injected)]
  (fn [{:keys [db eth-injected]} _]
    (if eth-injected
      {:efx/request-accounts {:provider (get-in db [:ethers :provider])
-                                :on-success [::update-chain-accounts "request-accounts"]
-                                :on-error [::log-error "Request accounts failed: "]}}
+                             :on-success [::update-chain-accounts "request-accounts"]
+                             :on-error [::log-error "Request accounts failed: "]}}
      {::utils/alert "Plz install metamask extension"})))
 
 (reg-event-db
  ::update-chain-accounts
- chain-info-interceptor
+ chain-interceptor
  (fn [chain [_ from accounts]]
    (if (= accounts (:accounts chain))
      chain
@@ -78,7 +77,7 @@
 
 (reg-event-db
  ::update-chain-network
- chain-info-interceptor
+ chain-interceptor
  (fn [{:keys [id] :as chain} [_ from {:keys [name chain-id] :as network-info}]]
    (if (= id chain-id)
      chain
@@ -87,7 +86,7 @@
 
 (reg-event-db
  ::update-chain-id
- chain-info-interceptor
+ chain-interceptor
  (fn [chain [_ chain-id]]
    (if (not= chain-id (:id chain))
      (assoc chain :id chain-id)
@@ -95,12 +94,55 @@
 
 (reg-event-db
  ::update-chain-height
- chain-info-interceptor
+ chain-interceptor
  (fn [chain [_ height]]
    (assoc chain :height height)))
 
+(reg-event-db
+ ::update-contract-address
+ contract-interceptor
+ (fn [contract [_ address]]
+   (assoc contract :address address)))
+
+(reg-event-db
+ ::update-contract-abi
+ contract-interceptor
+ (fn [contract [_ abi]]
+   (assoc contract :abi abi)))
+
+(reg-event-db
+ ::update-contract-abi-filename
+ contract-interceptor
+ (fn [contract [_ name]]
+   (assoc contract :abi-filename name)))
+
 (reg-event-fx
- ::set-error-msg
+ ::request-abi
+ [(inject-cofx ::db/base-url)]
+ (fn [{:keys [base-url]} [_ address]]
+   {:http-xhrio {:method          :get
+                 :uri             (str base-url address)
+                 :timeout         8000 ;; optional see API docs
+                 :response-format (ajax/json-response-format {:keywords? true}) ;; IMPORTANT!: You must provide this.
+                 :on-success      [::request-abi-success]
+                 :on-failure      [::request-abi-fail]}}))
+
+(reg-event-db 
+ ::request-abi-success
+ (fn [db [_ {:keys [result] :as res}]]
+   (assoc-in db [:contract :abi] (js->clj (js/JSON.parse result)))))
+
+;; TODO: a general fx?
+(reg-event-fx
+ ::request-abi-fail
+ (fn [cofx [_ {:keys [failure status] :as error}]]
+   {:db (assoc (:db cofx) :error-msg failure)
+    ::utils/timeout {:id :request-abi-error-msg
+                     :event [::remote-error-msg]
+                     :duration timeout-duration}}))
+
+(reg-event-fx
+ ::pop-error-msg
  (fn [cofx [_ msg]]
    {:db (assoc (:db cofx) :error-msg msg)
     ::utils/timeout {:id :error-msg
@@ -133,15 +175,6 @@
  (fn [{:keys [db]} [_ reason]]
    {:db (update-in db [:web3-updated] (fnil inc 0))
     ::utils/log (str "web3 updated: " reason)}))
-
-(comment (reg-event-fx
-          ::watch-block
-          (fn [{:keys [db]} _]
-            {:efx/p-on-event {:provider (get-in db [:ethers :provider])
-                              :event "block"
-                              :listener #(utils/>evt [::update-chain-height (utils/js->cljkk %)])}})))
-
-
 
 (.on ethereum/Ethereum "chainChanged"
      (fn [chain-id]

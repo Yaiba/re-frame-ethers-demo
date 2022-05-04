@@ -1,80 +1,119 @@
 (ns re-frame-ethers-demo.views
   (:require
+   [cljs.spec.alpha :as s]
    [clojure.string :as string]
-   [reagent.core :as reagent]
+   [reagent.core :as rg]
    [re-frame.core :refer [subscribe dispatch]]
    [re-frame-ethers-demo.subs :as subs]
    [cljs.core.async :refer [<! >! put! chan go go-loop] :as a]
    [cljs.core.async.interop :refer-macros [<p!]]
    [re-frame-ethers-demo.events :as events]
-   [re-frame-ethers-demo.utils :refer [<sub >evt chain-id-name]]
+   [re-frame-ethers-demo.db :as db]
+   [re-frame-ethers-demo.utils :refer [<sub >evt chain-id-name] :as utils]
    ))
+
+
+
+(defn connect-wallet-btn
+  []
+  (let [accounts (subscribe [::subs/chain-accounts])]
+    (fn []
+      (let [connected (empty? @accounts)]
+        [:button
+         {:on-click  (fn [e]
+                       (if connected
+                         (>evt [::events/connect-wallet])
+                         (js/console.log "wallet already connected")))}
+         (if connected "Connect Wallet" (first @accounts))]))))
+
+(defn chain-height
+  []
+  (let [chain-height (<sub [::subs/chain-height])]
+    [:p {:style {:color "pink"}}
+     "Block height: " chain-height]))
+
+(defn chain-id
+  []
+  (let [chain-id (<sub [::subs/chain-id])]
+    [:p {:style {:color "pink"}}
+     (str (get chain-id-name chain-id "not support") " Chain(" chain-id ")")]))
+
+(defn header
+  []
+  [:div
+   [connect-wallet-btn]
+   [chain-height]
+   [chain-id]
+   ])
+
+(defn err-box
+  []
+  (let [msg (<sub [::subs/error-msg])
+        show (boolean msg)]
+    [:p {:style {:display (if show "block" "none")
+                 :color "red"}}
+     msg]))
 
 
 ;; (defn gen-key! []
 ;;   (let [next (swap! uniq-key inc)]
 ;;     next))
 
-;; (defonce blockheight (r/atom 0))
-;; (defn update-blockheight-handler
-;;   [e]
-;;   (let [provider (:provider @w3)]
-;;     (when (not (nil? provider))
-;;       (go
-;;         (let [r (<p! (.getBlockNumber provider))]
-;;           (reset! blockheight r))))))
 
-;; (defonce block-updater (js/setInterval update-blockheight-handler 5000))
+(def first-file
+  "Accepts inpOBut change events and gets the first selected file."
+  (map (fn [e]
+         (let [target (.-currentTarget e)
+               file (-> target .-files (aget 0))]
+           (set! (.-value target) "")
+           file))))
 
-;; (def first-file
-;;   "Accepts inpOBut change events and gets the first selected file."
-;;   (map (fn [e]
-;;          (let [target (.-currentTarget e)
-;;                file (-> target .-files (aget 0))]
-;;            (set! (.-value target) "")
-;;            file))))
+(def extract-result
+  "Accepts a FileReader onload event, gets the parsed result."
+  (map #(-> % .-target .-result js/JSON.parse js->clj)))
 
-;; (def extract-result
-;;   "Accepts a FileReader onload event, gets the parsed result."
-;;   (map #(-> % .-target .-result js/JSON.parse js->clj )))
+(def upload-reqs (chan 1 first-file))
+(def file-reads (chan 1 extract-result))
 
-;; (def upload-reqs (chan 1 first-file))
-;; (def file-reads (chan 1 extract-result))
+(defn put-upload! [e]
+  (put! upload-reqs e))
 
-;; (defn put-upload! [e]
-;;   (put! upload-reqs e))
+;; handle new file
+(go-loop []
+       (let [reader (js/FileReader.)
+             file (<! upload-reqs)]
+         ;;(swap! app-state assoc :abi-file-name (.-name file))
+         (>evt [::events/update-contract-abi-filename (.-name file)])
+         (set! (.-onload reader) #(put! file-reads %))
+         (.readAsText reader file))
+       (recur))
 
-;; (go-loop []
-;;        (let [reader (js/FileReader.)
-;;              file (<! upload-reqs)]
-;;          (swap! app-state assoc :abi-file-name (.-name file))
-;;          (set! (.-onload reader) #(put! file-reads %))
-;;          (.readAsText reader file))
-;;        (recur))
+;; handle new file data
+(go-loop []
+  (let [abi-data (.get (<! file-reads) "abi")
+        ;;contract-addr (:contract-addr @app-state)
+        ;;provider (:provider @w3)
+        ;;contract (ethers/get-contract contract-addr abi-data provider)
+        ]
+    ;;(swap! app-state assoc :abi-data abi-data :contract contract)
+    (>evt [::events/update-contract-abi abi-data])
+    (recur)))
 
-;; (go-loop []
-;;   (let [abi-data (.get (<! file-reads) "abi")
-;;         contract-addr (:contract-addr @app-state)
-;;         provider (:provider @w3)
-;;         contract (ethers/get-contract contract-addr abi-data provider)]
-;;     (swap! app-state assoc :abi-data abi-data :contract contract)
-;;     (recur)))
-
-;; (defn upload-btn [abi-file-name]
-;;   [:div
-;;    (or abi-file-name "upload abi : ")
-;;    [:input {:type "file"
-;;             :name "inputfile"
-;;             :id "inputfile"
-;;             :accept ".json"
-;;             :on-change put-upload!
-;;             }]
-;;    (when abi-file-name
-;;      [:input {:type "button"
-;;               :style {:background-color "pink"}
-;;               :on-click #((reset! app-state default-app-state)
-;;                           (reset! uniq-key 0))
-;;               :value "reset"}])])
+(comment (defn upload-btn [abi-file-name]
+           [:div
+            (or abi-file-name "upload abi : ")
+            [:input {:type "file"
+                     :name "inputfile"
+                     :id "inputfile"
+                     :accept ".json"
+                     :on-change put-upload!
+                     }]
+            (when abi-file-name
+              [:input {:type "button"
+                       :style {:background-color "pink"}
+                       :on-click #((reset! app-state default-app-state)
+                                   (reset! uniq-key 0))
+                       :value "reset"}])]))
 
 ;; (defn read-func? [meta]
 ;;   (let [{ftype "type"
@@ -208,64 +247,60 @@
 ;;      [:br]
 ;;      [contract-funcs write-funcs false]]))
 
-;; (defn contract-address []
-;;   (let [v (:contract-addr @app-state)]
-;;     [:p "contract to call:"
-;;      [:input {:type "text"
-;;               :value v
-;;               :on-change #(swap! app-state assoc :contract-addr (-> % .-target .-value))}]]))
-
-;; (defn enable-ethers! [e]
-;;   (let [])
-;;   (go
-;;     (println "Connect Wallet  clicked")
-;;     (if (not ethers/is-metamask-installed)
-;;       (js/alert "metamask is not installed")
-;;       (let [[addr] (<p! (ethers/request-accounts))
-;;             balance (<p! (.getBalance (:signer @w3)))]
-;;         (swap! w3 assoc :account addr :balance (ethers/utils.formatUnits balance))))))
-
-
-(defn connect-wallet-btn
+(defn contract-address
   []
-  (let [accounts (subscribe [::subs/chain-accounts])]
+  (let [addr (<sub [::subs/contract-address])]
+    [:p "address: "
+     [:input {:type "text"
+              :value addr
+              :on-change (fn [e]
+                         (>evt [::events/update-contract-address
+                                (utils/js-event-val e)]))}]]))
+
+(defn upload-abi []
+  (let [filename (<sub [::subs/contract-abi-filename])]
+    [:div
+     (if (empty? filename)
+         [:label {:for "abifile"} "Upload abi: "]
+         filename)
+     [:input {:type "file"
+              :name "abifile"
+              :id "abifile"
+              :accept ".json"
+              :on-change put-upload!
+              }]]))
+
+(comment (when filename
+                [:input {:type "button"
+                         :style {:background-color "pink"}
+                         :on-click #((reset! state {})
+                                     ;;(reset! uniq-key 0)
+                                     )
+                         :value "reset"}]))
+
+(defn request-abi
+  []
+  (let [addr (<sub [::subs/contract-address])]
+    [:button
+     {:on-click (fn [e]
+                  (if (s/valid? ::db/eth-addr addr)
+                    (>evt [::events/request-abi addr])
+                    (>evt [::events/pop-error-msg "contract address is not set"])))}
+     "load abi from etherscan"]))
+
+(defn contract-area
+  []
+  (let [local-state (rg/atom {})
+        provider (subscribe [::subs/ethers-provider])
+        signer (subscribe [::subs/ethers-signer])]
     (fn []
-      (let [connected (empty? @accounts)]
-        [:button
-         {:on-click  (fn [e]
-                       (.preventDefault e)
-                       (if connected
-                         (>evt [::events/connect-wallet])
-                         (println "wallet already connected")))}
-         (if connected "Connect Wallet" (first @accounts))]))))
-
-(defn chain-height
-  []
-  (let [chain-height (<sub [::subs/chain-height])]
-    [:p {:style {:color "pink"}}
-     "Block height: " chain-height]))
-
-(defn chain-id
-  []
-  (let [chain-id (<sub [::subs/chain-id])]
-    [:p {:style {:color "pink"}}
-     (str (get chain-id-name chain-id "not support") " Chain(" chain-id ")")]))
-
-(defn header
-  []
-  [:div
-   [connect-wallet-btn]
-   [chain-height]
-   [chain-id]
-   ])
-
-(defn err-box
-  []
-  (let [msg (<sub [::subs/error-msg])
-        show (boolean msg)]
-    [:p {:style {:display (if show "block" "none")
-                 :color "red"}}
-     msg]))
+      [:div
+       [contract-address]       
+       [upload-abi]
+       [request-abi]
+       
+       ;;[result (:abi-data @app-state)]   ])
+       ])))
 
 
 (defn main-panel
@@ -275,8 +310,5 @@
    [header]
    [:h2 "re-frame & ethers"]
 
-   ;;[connect-wallet]
-   ;;[contract-address]
-   ;;[upload-btn (:abi-file-name @app-state)]
-   ;;[result (:abi-data @app-state)]
+   [contract-area]
    ])

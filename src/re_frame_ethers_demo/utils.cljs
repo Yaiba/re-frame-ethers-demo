@@ -20,7 +20,8 @@
    4 "rinkeby"
    56 "bsc"
    137 "polygon"
-   100 "gnosis"})
+   100 "gnosis"
+   1337 "ganache"})
 
 ;; https://api.etherscan.io/api?module=contract&action=getabi&address=0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b
 

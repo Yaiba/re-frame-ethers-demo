@@ -30,13 +30,13 @@
 
 (reg-sub
  ::ethers-provider
- :<- [:ethers]
+ :<- [::ethers]
  (fn [ethers _]
    (:provider ethers)))
 
 (reg-sub
  ::ethers-signer
- :<- [:ethers]
+ :<- [::ethers]
  (fn [ethers _]
    (:signer ethers)))
 
@@ -68,3 +68,26 @@
  :<- [::chain]
  (fn [chain _]
    (:name chain)))
+
+(reg-sub
+ ::contract
+ (fn [db]
+   (:contract db)))
+
+(reg-sub
+ ::contract-address
+ :<- [::contract]
+ (fn [contract _]
+   (:address contract)))
+
+(reg-sub
+ ::contract-abi
+ :<- [::contract]
+ (fn [contract _]
+   (:abi contract)))
+
+(reg-sub
+ ::contract-abi-filename
+ :<- [::contract]
+ (fn [contract _]
+   (:abi-filename contract)))

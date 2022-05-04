@@ -4,6 +4,27 @@
             [re-frame-ethers-demo.utils :as utils]
             ))
 
+(def Contract ethers/Contract)
+(def Utils (.-utils ethers))
+(def Provider (.. ethers -providers -Web3Provider))
+(def Signer (.-Signer ethers))
+
+(defn get-provider
+  [ethereum]
+  (Provider. ethereum))
+
+(defn to-readable-abi [json-abi]
+  (-> json-abi
+      (Utils.Interface.)
+      (.format ethers/FormatTypes.-full)))
+
+(defn get-contract [addr abi provider]
+  (Contract. addr (clj->js abi) provider))
+
+(defn call [contract method args]
+  (do (js/console.log "call: " method args)
+        (apply (aget contract method) (clj->js args))))
+
 
 (defn provider-call
   [provider method-name on-success on-error & args]
@@ -22,7 +43,7 @@
    - filter events
   "
   [provider method-name event listener]
-  (ocall provider method-name event listener))
+  (ocall+ provider method-name event listener))
 
 (defn signer-call
   []

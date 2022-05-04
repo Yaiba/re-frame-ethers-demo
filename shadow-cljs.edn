@@ -5,7 +5,9 @@
  :dependencies
  [[reagent "1.1.0"]
   [re-frame "1.2.0"]
-  [cider/cider-nrepl "0.27.3"]
+  [cider/cider-nrepl "0.28.3"]
+  [cljs-ajax "0.8.4"]
+  [day8.re-frame/http-fx "0.2.4"]
 
   [binaryage/oops "0.7.2"]
   [binaryage/devtools "1.0.4"]
@@ -21,22 +23,19 @@
   {:target     :browser
    :output-dir "resources/public/js/compiled"
    :asset-path "/js/compiled"
-   :modules
-   {:app {:init-fn re-frame-ethers-demo.core/init}}
-   :devtools
-   {:preloads [
-               re-frisk.preload]}
+   :modules {:app {:init-fn re-frame-ethers-demo.core/init}}
+   :closure-defines {;;https://shadow-cljs.github.io/docs/UsersGuide.html#shadow-env
+                     "re_frame_ethers_demo.config.etherscan_apikey" #shadow/env "ETHERSCAN_REFRAME_KEY"}
+   :devtools {:preloads [re-frisk.preload]}
    :dev
-   {:compiler-options
-    {:checked-arrays :warn
-     :closure-defines
-     {"re_frame.trace.trace_enabled_QMARK_" true}}}}
-  :browser-test
-  {:target    :browser-test
-   :ns-regexp "-test$"
-   :runner-ns shadow.test.browser
-   :test-dir  "target/browser-test"}
-  :karma-test
-  {:target    :karma
-   :ns-regexp "-test$"
-   :output-to "target/karma-test.js"}}}
+    {:compiler-options
+     {:checked-arrays :warn
+      :closure-defines {"re_frame.trace.trace_enabled_QMARK_" true
+                        "re_frame_ethers_demo.config.debug_QMARK" true}}}}
+  :browser-test {:target    :browser-test
+                 :ns-regexp "-test$"
+                 :runner-ns shadow.test.browser
+                 :test-dir  "target/browser-test"}
+  :karma-test {:target    :karma
+               :ns-regexp "-test$"
+               :output-to "target/karma-test.js"}}}

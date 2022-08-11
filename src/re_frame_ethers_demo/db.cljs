@@ -1,13 +1,5 @@
 (ns re-frame-ethers-demo.db
-  (:require [cljs.spec.alpha :as s]
-            [cljs.reader]
-            [clojure.string :as string]
-            [re-frame.core :refer [reg-cofx]]
-            [cljs.core.async :refer [<! >! put! chan go go-loop]]
-            [cljs.core.async.interop :refer-macros [<p!]]
-            [re-frame-ethers-demo.ethers :as ethers]
-            [re-frame-ethers-demo.config :as conf]
-            [re-frame-ethers-demo.ethereum :as ethereum]))
+  (:require [cljs.spec.alpha :as s]))
 
 
 ;;(s/def ::balance int?)
@@ -52,64 +44,24 @@
 
 
 (def default-db
-  {:ethers {:provider nil
-            :signer nil}
+  {:web3 {:provider nil
+          :signer nil
+          :chain {:accounts []
+                  :id 0
+                  :name ""
+                  :height 0}}
    :contract {:abi []
+              :abi-raw []
               :readable-abi []
               :abi-filename ""
-              :address ""}
-   :chain {:accounts []
-           :id 0
-           :name ""
-           :height 0}
+              :address ""
+              :state {}}
+   :current-route nil
+   ;:active-panel :nil
+   ;:panel-params nil
    })
 
-(def ls-chain-key "reframe-chain")
 
-(defn chain-info->local-store
-  "Puts chain-info into localStorage"
-  [chain-info]
-  (.setItem js/localStorage ls-chain-key (str chain-info)))     ;; sorted-map written as an EDN map
-
-(reg-cofx
-::local-store-chain-info
-(fn [cofx _]
-  ;; put the localstore todos into the coeffect under :local-store-todos
-  (assoc cofx :local-store-chain-info
-         ;; read in todos from localstore, and process into a sorted map
-         (into (hash-map)
-               (some->> (.getItem js/localStorage ls-chain-key)
-                        (cljs.reader/read-string)    ;; EDN map -> map
-                        )))))
-
-
-(reg-cofx
- ::eth-injected
- (fn [cofx _]
-   (assoc cofx :eth-injected ethereum/is-metamask-installed)))
-
-(reg-cofx
- ::web3-connected
- (fn [cofx _]
-   (assoc cofx :web3-connected ethereum/is-connected)))
-
-(reg-cofx
- ::ethers-info
- (fn [{:keys [eth-injected] :as cofx} _]
-   (let [provider (ethers/get-provider ethereum/Ethereum)
-         signer (.getSigner provider)]
-     (if eth-injected
-       (assoc cofx :web3-provider provider
-                   :web3-signer signer)
-       cofx))))
-
-
-(reg-cofx
- ::base-url
- (fn [cofx _]
-   (assoc cofx :base-url (str "https://api.etherscan.io/api?module=contract&action=getabi&apikey="
-   conf/etherscan-apikey
-   "&address="))))
 ;;(def uniq-key (r/atom 0))
 ;;(def app-state (r/atom default-app-state))
 ;;(def addr (r/atom "0x..."))

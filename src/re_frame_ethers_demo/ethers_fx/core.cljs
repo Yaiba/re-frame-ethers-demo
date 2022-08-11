@@ -1,10 +1,13 @@
-(ns re-frame-ethers-demo.ethers-fx
-  (:require
-   ["ethers" :as ethers]
-   [cljs.spec.alpha :as s]
-   [re-frame-ethers-demo.ethers :as es]
-   [re-frame.core :refer [reg-fx]]
-   [re-frame-ethers-demo.utils :as utils]))
+(ns re-frame-ethers-demo.ethers-fx.core
+    (:require
+     [re-frame.core :refer [subscribe dispatch reg-fx]]
+     [cljs.spec.alpha :as s]
+     [re-frame-ethers-demo.cljs-ethers.core :as ce]
+     [re-frame-ethers-demo.cljs-ethers.provider :as cep]
+     [re-frame-ethers-demo.cljs-ethers.contract :as cec]
+     [re-frame.core :refer [reg-fx]]
+     [re-frame-ethers-demo.ethers-fx.utils :as utils]))
+ 
 
 (s/def ::id any?)
 (s/def ::instance (complement nil?))
@@ -51,57 +54,86 @@
                                                         ::fn
                                                         ::instance]))))
 
-(defn rpc-handler
-  [provider method-name on-success on-error args]
-  (-> (.send provider method-name args)
-      (.then (fn [val]
-               (utils/promise-dispatch on-success (utils/js->cljkk val))))
-      (.catch (fn [err]
-                (utils/promise-dispatch on-error err)))
-      (.finally true)))
+(defn promise-handler
+  [{:keys [object fns]} params]
+  (doseq [{:keys [fn args on-success on-error]} (remove nil? fns)]
+    (ce/promise-call object fn
+                     (utils/promise-event on-success)
+                     (utils/promise-event on-error)
+                     args)))
+
+;; general promise fx
+(reg-fx
+ :efx/promise promise-handler)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (reg-fx
  :efx/request-accounts
  (fn [{:keys [provider on-success on-error args]}]
-   (rpc-handler provider "eth_requestAccounts" on-success on-error args)))
+   (ce/rpc-handler provider "eth_requestAccounts"
+                   (utils/promise-event on-success)
+                   (utils/promise-event on-error) args)))
 
 (reg-fx
  :efx/load-accounts
  (fn [{:keys [provider on-success on-error args]}]
-   (rpc-handler provider "eth_accounts" on-success on-error args)))
+   (ce/rpc-handler provider "eth_accounts"
+                   (utils/promise-event on-success)
+                   (utils/promise-event on-error) args)))
 
-
+;; provider method fx
 (defn provider-handler
   [{:keys [provider fns]} params]
   (s/assert ::provider-call params)
   (doseq [{:keys [fn args on-success on-error]} (remove nil? fns)]
-    (es/provider-call provider fn on-success on-error args)))
+    (ce/promise-call provider fn
+                     (utils/promise-event on-success)
+                     (utils/promise-event on-error) args)))
 
-;; provider method fx
 (reg-fx
  :efx/p-call provider-handler)
 
-
 (defn- on-event-handler
   [{:keys [provider event listener]}]
-  (es/provider-event-call provider "on" event listener))
+  (cep/provider-event-call provider "on" event listener))
+
+(defn- on-block-handler
+  [params]
+  (on-event-handler (assoc params :event "block")))
 
 (reg-fx
  :efx/p-on-event on-event-handler)
 
+(reg-fx
+ :efx/watch-blocks on-block-handler)
+
 (defn- off-event-handler
   [{:keys [provider event listener]}]
-  (es/provider-event-call provider "off" event listener))
+  (cep/provider-event-call provider "off" event listener))
 
 (reg-fx
  :efx/p-off-event off-event-handler)
 
 (defn- once-event-handler
   [{:keys [provider event listener]}]
-  (es/provider-event-call provider "once" event listener))
+  (cep/provider-event-call provider "once" event listener))
 
 (reg-fx
  :efx/p-once-event once-event-handler)
 
+
+;; signer method fx
+
+;; contract method fx
+(defn contract-handler
+  [{:keys [instance fns]} params]
+  ;;(s/assert ::provider-call params)
+  (doseq [{:keys [fn args on-success on-error]} (remove nil? fns)]
+    (ce/promise-call instance fn
+                     (utils/promise-event on-success)
+                     (utils/promise-event on-error)
+                     args)))
+
 (reg-fx
- :efx/watch-blocks on-event-handler)
+ :efx/c-call contract-handler)

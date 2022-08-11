@@ -8,6 +8,8 @@
   [cider/cider-nrepl "0.28.3"]
   [cljs-ajax "0.8.4"]
   [day8.re-frame/http-fx "0.2.4"]
+  [metosin/reitit "0.5.18"]
+  [day8.re-frame/async-flow-fx "0.3.0"]
 
   [binaryage/oops "0.7.2"]
   [binaryage/devtools "1.0.4"]
@@ -21,12 +23,18 @@
  :builds
  {:app
   {:target     :browser
+   ;:module-hash-names true
    :output-dir "resources/public/js/compiled"
    :asset-path "/js/compiled"
    :modules {:app {:init-fn re-frame-ethers-demo.core/init}}
    :closure-defines {;;https://shadow-cljs.github.io/docs/UsersGuide.html#shadow-env
-                     "re_frame_ethers_demo.config.etherscan_apikey" #shadow/env "ETHERSCAN_REFRAME_KEY"}
+                     re_frame_ethers_demo.config/etherscan_apikey #shadow/env ["ETHERSCAN_REFRAME_KEY" :default "default-etherscan-key"]}
    :devtools {:preloads [re-frisk.preload]}
+   :release
+    {:compiler-options {:optimizations :advanced
+                        :infer-externs :auto
+                        "re_frame.trace.trace_enabled_QMARK_" false
+                        "re_frame_ethers_demo.config.debug_QMARK" false}}
    :dev
     {:compiler-options
      {:checked-arrays :warn

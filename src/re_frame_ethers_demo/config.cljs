@@ -4,7 +4,6 @@
 (goog-define debug? false)
 
 (when debug?
-  (println "Hello World"))
+  (enable-console-print!))
 
 (goog-define etherscan-apikey "")
-

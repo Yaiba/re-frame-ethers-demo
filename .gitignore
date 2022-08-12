@@ -17,3 +17,6 @@
 
 # clj-kondo cache
 /.clj-kondo/.cache
+
+# firebase
+.firebase

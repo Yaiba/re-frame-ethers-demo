@@ -3,7 +3,7 @@
 	"scripts": {
 		"ancient": "clojure -Sdeps '{:deps {com.github.liquidz/antq {:mvn/version \"RELEASE\"}}}' -m antq.core",
 		"watch": "npx shadow-cljs watch app browser-test karma-test",
-		"release": "npx shadow-cljs release app",
+		"release": "npx shadow-cljs release app && rm resources/public/js/compiled/manifest.edn",
 		"release-pseudo": "npx shadow-cljs release app --pseudo-names",
 		"build-report": "npx shadow-cljs run shadow.cljs.build-report app target/report.html",
 		"ci": "npx shadow-cljs compile karma-test && npx karma start --single-run --reporters junit,dots"

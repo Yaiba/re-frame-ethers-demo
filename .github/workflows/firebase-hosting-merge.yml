@@ -12,9 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: npm install && npm run release
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: deploy to firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_RE_FRAME_ETHERS_DEMO }}'
           channelId: live
           projectId: re-frame-ethers-demo
+      - name: deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./resources/public

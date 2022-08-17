@@ -1,7 +1,6 @@
 (ns re-frame-ethers-demo.events
   (:require
    [re-frame.core :refer [reg-event-db reg-event-fx inject-cofx path after]]
-   [cljs.spec.alpha :as s]
    [day8.re-frame.http-fx]
    [ajax.core :as ajax]
    [re-frame-ethers-demo.effects]
@@ -56,17 +55,3 @@
  :remove-error-msg
  (fn [db _]
    (dissoc db :error-msg)))
-
-(defn check-and-throw
-  "Throws an exception if `db` doesn't match the Spec `a-spec`."
-  [a-spec db]
-  (when-not (s/valid? a-spec db)
-    (do
-      (js/console.log (s/explain-str a-spec db))
-      (throw (ex-info (str "spec check failed: "
-                           (s/explain-str a-spec db)) {})))))
-
-(def check-spec-interceptor
-  (after (partial check-and-throw :re-frame-ethers-demo.db/db)))
-
-(def web3-interceptors [check-spec-interceptor])

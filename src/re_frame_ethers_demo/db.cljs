@@ -1,46 +1,54 @@
 (ns re-frame-ethers-demo.db
-  (:require [cljs.spec.alpha :as s]))
+  (:require [cljs.spec.alpha :as s]
+            [re-frame-ethers-demo.cljs-ethers.core :as es]))
 
+(defn eth-addr?
+  [x]
+  (and
+   (string? x)
+   (= 42 (count x))
+   (clojure.string/starts-with? x "0x")))
 
-;;(s/def ::balance int?)
-;;(s/def ::block-height int?)
+(defn empty-addr?
+  [x]
+  (and
+   (string? x)
+   (empty? x)))
 
+(defn address?
+  [x]
+  (or
+   (eth-addr? x)
+   (empty-addr? x)
+   ))
 
-(s/def ::eth-addr (s/and string? #(= 42 (count %)) #(clojure.string/starts-with? % "0x")))
+(s/def ::eth-addr eth-addr?)
+(s/def ::empty-addr empty-addr?)
 
-(comment (s/def ::address
-           (s/or
-            :empty-addr (s/and string? #(= 0 (count %)))
-            ::eth-addr)))
+(s/def ::address (s/or :eth-addr eth-addr?
+                       :empty-addr empty-addr?))
 
-(s/def ::address string?)
-
+(s/def ::abi-raw string?)
 (s/def ::abi-filename string?)
 (s/def ::abi (s/coll-of map? :kind vector?))
 (s/def ::readable-abi (s/coll-of string? :kind vector?))
-;;(s/def ::contract #(instance? ethers/contract))
-(s/def ::contract (s/keys :req-un [::readable-abi ::address]))
+(s/def ::contract (s/keys :req-un [::abi ::address ::abi-raw]
+                          :opt-un [::abi-filename]))
 
-;;(s/def ::provider (s/nilable #(instance? ethers/provider %)))
-;;(s/def ::signer (s/nilable #(instance? ethers/signer %)))
-(s/def ::provider (complement nil?))
-(s/def ::signer (complement nil?))
-(s/def ::ethers (s/keys :req-un [::provider ::signer]))
+(s/def ::accounts (s/nilable array?))
 
-(s/def ::web3-ready boolean?)
-
-
-(s/def ::accounts (s/coll-of ::address :kind vector?))
 (s/def ::id nat-int?)
 (s/def ::name string?)
 (s/def ::height nat-int?)
 (s/def ::chain (s/keys
                 :req-un [::accounts ::id ::name ::height]))
 
-(s/def ::error-msg string?)
+(s/def ::provider (s/nilable #(instance? es/Provider %)))
+(s/def ::signer (s/nilable #(instance? es/Signer %)))
 
+(s/def ::web3 (s/keys :req-un [::chain ::provider ::signer]))
 
-(s/def ::db (s/keys :req-un [::ethers ::contract ::chain ::error-msg]))
+(s/def ::db (s/keys :req-un [::web3 ::contract]))
 
 
 (def default-db
@@ -51,18 +59,11 @@
                   :name ""
                   :height 0}}
    :contract {:abi []
-              :abi-raw []
+              :abi-raw ""
               :readable-abi []
               :abi-filename ""
               :address ""
               :state {}}
    :current-route nil
-   ;:active-panel :nil
-   ;:panel-params nil
    })
-
-
-;;(def uniq-key (r/atom 0))
-;;(def app-state (r/atom default-app-state))
-;;(def addr (r/atom "0x..."))
 

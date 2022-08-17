@@ -3,9 +3,11 @@
             [re-frame-ethers-demo.db :as db]
             [re-frame-ethers-demo.effects :refer [>local-store]]
             [re-frame-ethers-demo.ethereum :as ethereum]
+            [re-frame-ethers-demo.interceptors :refer [icheck]]
             [re-frame-ethers-demo.utils :refer [>evt chain-id-name]]))
 
-(def chain-interceptor [(path [:web3 :chain])
+(def chain-interceptor [icheck
+                        (path [:web3 :chain])
                         (after (>local-store :chain))])
 
 (reg-event-db
@@ -70,7 +72,7 @@
          (>evt [:web3/updated "account changed"])
          (if (empty? accounts )
            (>evt [:alert "Plz connect to metamask."])
-           (>evt [:web3/update-chain-accounts "change-accunts" accounts])))))
+           (>evt [:web3/update-chain-accounts "change-accounts" accounts])))))
 
 (reg-event-fx
  :web3/connect-wallet

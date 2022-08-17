@@ -4,10 +4,12 @@
             [re-frame-ethers-demo.cljs-ethers.utils :as utils]
             ))
 
+(def Provider (.. es -providers -Web3Provider))
+(def Signer (.. es -providers -JsonRpcSigner))
+
 (defn get-provider
   [ethereum]
-  (let [provider (.. es -providers -Web3Provider)]
-    (provider. ethereum)))
+  (Provider. ethereum))
 
 (defn get-contract
   "Return a contract instance from abi(#js) "

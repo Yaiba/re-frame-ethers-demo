@@ -33,13 +33,13 @@
    :release
     {:compiler-options {:optimizations :advanced
                         :infer-externs :auto
-                        "re_frame.trace.trace_enabled_QMARK_" false
-                        "re_frame_ethers_demo.config.debug_QMARK" false}}
+                        re_frame.trace.trace_enabled_QMARK_ false
+                        re_frame_ethers_demo.config.debug_QMARK_ false}}
    :dev
     {:compiler-options
      {:checked-arrays :warn
-      :closure-defines {"re_frame.trace.trace_enabled_QMARK_" true
-                        "re_frame_ethers_demo.config.debug_QMARK" true}}}}
+      :closure-defines {re_frame.trace.trace_enabled_QMARK_ true
+                        re_frame_ethers_demo.config.debug_QMARK_ true}}}}
   :browser-test {:target    :browser-test
                  :ns-regexp "-test$"
                  :runner-ns shadow.test.browser

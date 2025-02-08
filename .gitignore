@@ -20,3 +20,6 @@
 
 # firebase
 .firebase
+
+# IDEs
+.idea
